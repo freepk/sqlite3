@@ -47,3 +47,72 @@ func BenchmarkPrepare(b *testing.B) {
 		stmt.Close()
 	}
 }
+
+func BenchmarkBind(b *testing.B) {
+	db, err := NewDB(":memory:")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2 UNION ALL SELECT ?3")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer stmt.Close()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = stmt.Bind(i, "test value")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkExecSelect(b *testing.B) {
+	db, err := NewDB(":memory:")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2 UNION ALL SELECT ?3")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer stmt.Close()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = stmt.Exec("1", "2", "3")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkExecInsert(b *testing.B) {
+	db, err := NewDB(":memory:")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer db.Close()
+	tabStmt, err := db.Prepare("CREATE TABLE `keyVal` (`key` INT NOT NULL CONSTRAINT `PK_keyVal` PRIMARY KEY, `val` TEXT NOT NULL) WITHOUT ROWID")
+	if err != nil {
+		b.Fatal(err)
+	}
+	err = tabStmt.Exec()
+	if err != nil {
+		b.Fatal(err)
+	}
+	tabStmt.Close()
+	insStmt, err := db.Prepare("INSERT INTO `keyVal` (`key`, `val`) VALUES (?1, ?2)")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer insStmt.Close()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = insStmt.Exec(i, "test value")
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
