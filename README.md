@@ -1,2 +1,4 @@
-# sqlite3
-Cgo wrapper
+Another one cgo sqlite3 wrapper
+
+# Motivation
+Optimize for key-value in memory store.
