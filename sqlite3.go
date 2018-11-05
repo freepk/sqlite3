@@ -52,7 +52,6 @@ func Open(URI string) (*DB, error) {
 		C.sqlite3_close_v2(p)
 		return nil, errors.New("cannot open database")
 	}
-	C.sqlite3_close_v2(nil)
 	return &DB{p: p}, nil
 }
 
