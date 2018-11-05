@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewDB(t *testing.T) {
-	db, err := NewDB(":memory:")
+func TestOpen(t *testing.T) {
+	db, err := Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestNewDB(t *testing.T) {
 }
 
 func BenchmarkPrepare(b *testing.B) {
-	db, err := NewDB(":memory:")
+	db, err := Open(":memory:")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func BenchmarkPrepare(b *testing.B) {
 }
 
 func BenchmarkBind(b *testing.B) {
-	db, err := NewDB(":memory:")
+	db, err := Open(":memory:")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func BenchmarkBind(b *testing.B) {
 }
 
 func BenchmarkExecSelect(b *testing.B) {
-	db, err := NewDB(":memory:")
+	db, err := Open(":memory:")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func BenchmarkExecSelect(b *testing.B) {
 }
 
 func BenchmarkExecInsert(b *testing.B) {
-	db, err := NewDB(":memory:")
+	db, err := Open(":memory:")
 	if err != nil {
 		b.Fatal(err)
 	}

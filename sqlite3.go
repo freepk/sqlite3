@@ -45,7 +45,7 @@ const (
 	SQLITE_ROW  = C.SQLITE_ROW
 )
 
-func NewDB(URI string) (*DB, error) {
+func Open(URI string) (*DB, error) {
 	var p *C.sqlite3
 	r := C._sqlite3_open(URI, &p)
 	if r != SQLITE_OK {
