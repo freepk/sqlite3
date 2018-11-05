@@ -70,7 +70,7 @@ func (d *DB) Prepare(SQL string) (*Stmt, error) {
 	return &Stmt{p: p}, nil
 }
 
-func (s *Stmt) Bind(args ...interface{}) error {
+func (s *Stmt) bind(args ...interface{}) error {
 	for k, v := range args {
 		i := C.int(k + 1)
 		r := C.int(0)
@@ -94,7 +94,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	if r != SQLITE_OK {
 		return errors.New("cannot reset statement")
 	}
-	err := s.Bind(args...)
+	err := s.bind(args...)
 	if err != nil {
 		return err
 	}

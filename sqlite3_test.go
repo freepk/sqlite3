@@ -61,7 +61,7 @@ func BenchmarkBind(b *testing.B) {
 	defer stmt.Close()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = stmt.Bind(i, "test value")
+		err = stmt.bind(i, "test value")
 		if err != nil {
 			b.Fatal(err)
 		}
