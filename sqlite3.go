@@ -69,6 +69,14 @@ func (d *DB) Prepare(SQL string) (*Stmt, error) {
 	return &Stmt{p: p}, nil
 }
 
+func (d *DB) Backup(URI string) error {
+	return nil
+}
+
+func (d *DB) Restore(URI string) error {
+	return nil
+}
+
 func (s *Stmt) bind(args ...interface{}) error {
 	for k, v := range args {
 		i := C.int(k + 1)

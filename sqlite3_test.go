@@ -54,7 +54,7 @@ func BenchmarkBind(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2 UNION ALL SELECT ?3")
+	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -74,14 +74,14 @@ func BenchmarkExecSelect(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer db.Close()
-	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2 UNION ALL SELECT ?3")
+	stmt, err := db.Prepare("SELECT ?1 x UNION ALL SELECT ?2")
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer stmt.Close()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = stmt.Exec("1", "2", "3")
+		err = stmt.Exec(i, "test value")
 		if err != nil {
 			b.Fatal(err)
 		}
