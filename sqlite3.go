@@ -17,12 +17,36 @@ int _sqlite3_open(_GoString_ URI, sqlite3 **ppDb) {
 	return sqlite3_open(cURI, ppDb);
 }
 
+int _sqlite3_copy(sqlite3 *pDb, _GoString_ URI, int isSave) {
+	sqlite3 *pTemp;
+	int rc = _sqlite3_open(URI, &pTemp);
+	if (rc == SQLITE_OK) {
+		sqlite3 *pTo;
+		sqlite3 *pFrom;
+		if (isSave == 1) {
+			pTo = pTemp;
+			pFrom = pDb;
+		} else {
+			pTo = pDb;
+			pFrom = pTemp;
+		}
+		sqlite3_backup *pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
+		if (pBackup) {
+			(void)sqlite3_backup_step(pBackup, -1);
+			(void)sqlite3_backup_finish(pBackup);
+		}
+		rc = sqlite3_errcode(pTo);
+	}
+	sqlite3_close(pTemp);
+	return rc;
+}
+
 int _sqlite3_prepare(sqlite3 *pDb, _GoString_ SQL, sqlite3_stmt **ppStmt) {
 	return sqlite3_prepare_v2(pDb, _GoStringPtr(SQL), _GoStringLen(SQL), ppStmt, NULL);
 }
 
 int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int i, _GoString_ data) {
-	sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
+	return sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
 */
 import "C"
@@ -70,10 +94,18 @@ func (d *DB) Prepare(SQL string) (*Stmt, error) {
 }
 
 func (d *DB) Backup(URI string) error {
+	r := C._sqlite3_copy(d.p, URI, 1)
+	if r != SQLITE_OK {
+		return errors.New("cannot backup database")
+	}
 	return nil
 }
 
 func (d *DB) Restore(URI string) error {
+	r := C._sqlite3_copy(d.p, URI, 0)
+	if r != SQLITE_OK {
+		return errors.New("cannot restore database")
+	}
 	return nil
 }
 
