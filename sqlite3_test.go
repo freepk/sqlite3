@@ -58,11 +58,11 @@ func TestBackupRestore(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	err = db.Backup("file:backup.db")
+	err = db.Backup("backup.db")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.Restore("file:backup.db")
+	err = db.Restore("backup.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,13 +179,13 @@ func BenchmarkRestore(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	err = db.Backup("file:backup.db")
+	err = db.Backup("backup.db")
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = db.Restore("file:index.db")
+		err = db.Restore("backup.db")
 		if err != nil {
 			b.Fatal(err)
 		}
