@@ -22,7 +22,7 @@ int _sqlite3_prepare(sqlite3 *pDb, _GoString_ SQL, sqlite3_stmt **ppStmt) {
 }
 
 int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int i, _GoString_ data) {
-	sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
+	return sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
 */
 import "C"
