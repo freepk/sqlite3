@@ -41,7 +41,7 @@ int _sqlite3_copy(sqlite3 *pDb, _GoString_ URI, int isSave) {
 	return rc;
 }
 
-int _sqlite3_prepare(sqlite3 *pDb, _GoString_ SQL, sqlite3_stmt **ppStmt) {
+int _sqlite3_prepare(sqlite3 *pDb, sqlite3_stmt **ppStmt, _GoString_ SQL) {
 	return sqlite3_prepare_v2(pDb, _GoStringPtr(SQL), _GoStringLen(SQL), ppStmt, NULL);
 }
 
@@ -85,7 +85,7 @@ func (d *DB) Close() {
 
 func (d *DB) Prepare(SQL string) (*Stmt, error) {
 	var p *C.sqlite3_stmt
-	r := C._sqlite3_prepare(d.p, SQL, &p)
+	r := C._sqlite3_prepare(d.p, &p, SQL)
 	if r != SQLITE_OK {
 		C.sqlite3_finalize(p)
 		return nil, errors.New("cannot prepare statement")
