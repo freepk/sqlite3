@@ -63,16 +63,10 @@ type Stmt struct {
 	p *C.sqlite3_stmt
 }
 
-const (
-	SQLITE_OK   = C.SQLITE_OK
-	SQLITE_DONE = C.SQLITE_DONE
-	SQLITE_ROW  = C.SQLITE_ROW
-)
-
 func Open(URI string) (*DB, error) {
 	var p *C.sqlite3
 	r := C._sqlite3_open(&p, URI)
-	if r != SQLITE_OK {
+	if r != C.SQLITE_OK {
 		C.sqlite3_close_v2(p)
 		return nil, errors.New("cannot open database")
 	}
@@ -86,16 +80,20 @@ func (d *DB) Close() {
 func (d *DB) Prepare(SQL string) (*Stmt, error) {
 	var p *C.sqlite3_stmt
 	r := C._sqlite3_prepare(d.p, &p, SQL)
-	if r != SQLITE_OK {
+	if r != C.SQLITE_OK {
 		C.sqlite3_finalize(p)
 		return nil, errors.New("cannot prepare statement")
 	}
 	return &Stmt{p: p}, nil
 }
 
+func (s *Stmt) Close() {
+	C.sqlite3_finalize(s.p)
+}
+
 func (d *DB) Backup(URI string) error {
 	r := C._sqlite3_copy(d.p, URI, 1)
-	if r != SQLITE_OK {
+	if r != C.SQLITE_OK {
 		return errors.New("cannot backup database")
 	}
 	return nil
@@ -103,7 +101,7 @@ func (d *DB) Backup(URI string) error {
 
 func (d *DB) Restore(URI string) error {
 	r := C._sqlite3_copy(d.p, URI, 0)
-	if r != SQLITE_OK {
+	if r != C.SQLITE_OK {
 		return errors.New("cannot restore database")
 	}
 	return nil
@@ -121,7 +119,7 @@ func (s *Stmt) bind(args ...interface{}) error {
 		default:
 			return errors.New("cannot bind parameters")
 		}
-		if r != SQLITE_OK {
+		if r != C.SQLITE_OK {
 			return errors.New("cannot bind parameters")
 		}
 	}
@@ -130,7 +128,7 @@ func (s *Stmt) bind(args ...interface{}) error {
 
 func (s *Stmt) Exec(args ...interface{}) error {
 	r := C.sqlite3_reset(s.p)
-	if r != SQLITE_OK {
+	if r != C.SQLITE_OK {
 		return errors.New("cannot reset statement")
 	}
 	err := s.bind(args...)
@@ -138,15 +136,23 @@ func (s *Stmt) Exec(args ...interface{}) error {
 		return err
 	}
 	r = C.sqlite3_step(s.p)
-	if r == SQLITE_DONE {
+	if r == C.SQLITE_DONE {
 		return nil
 	}
-	if r == SQLITE_ROW {
+	if r == C.SQLITE_ROW {
 		return nil
 	}
 	return errors.New("cannot execute statement")
 }
 
-func (s *Stmt) Close() {
-	C.sqlite3_finalize(s.p)
+func (s *Stmt) next() int {
+	return 0
+}
+
+func (s *Stmt) Next() bool {
+	return false
+}
+
+func (s *Stmt) Scan(args ...interface{}) error {
+	return nil
 }
