@@ -6,7 +6,7 @@ package sqlite3
 
 #define URI_MAX_SIZE 256
 
-int _sqlite3_open(_GoString_ URI, sqlite3 **ppDb) {
+int _sqlite3_open(sqlite3 **ppDb, _GoString_ URI) {
 	size_t size = _GoStringLen(URI);
 	if (size >= URI_MAX_SIZE) {
 		return SQLITE_ERROR;
@@ -19,7 +19,7 @@ int _sqlite3_open(_GoString_ URI, sqlite3 **ppDb) {
 
 int _sqlite3_copy(sqlite3 *pDb, _GoString_ URI, int isSave) {
 	sqlite3 *pTemp;
-	int rc = _sqlite3_open(URI, &pTemp);
+	int rc = _sqlite3_open(&pTemp, URI);
 	if (rc == SQLITE_OK) {
 		sqlite3 *pTo;
 		sqlite3 *pFrom;
@@ -71,7 +71,7 @@ const (
 
 func Open(URI string) (*DB, error) {
 	var p *C.sqlite3
-	r := C._sqlite3_open(URI, &p)
+	r := C._sqlite3_open(&p, URI)
 	if r != SQLITE_OK {
 		C.sqlite3_close_v2(p)
 		return nil, errors.New("cannot open database")
