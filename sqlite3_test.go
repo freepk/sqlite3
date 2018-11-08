@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestOpen(t *testing.T) {
+func TestCommon(t *testing.T) {
 	db, err := Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -26,6 +26,17 @@ func TestOpen(t *testing.T) {
 	defer insStmt.Close()
 	for i := 0; i < 100; i++ {
 		err = insStmt.Exec(i, "test value")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	selStmt, err := db.Prepare("SELECT `key`, `val` FROM `keyVal`")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer selStmt.Close()
+	for i := 0; i < 100; i++ {
+		err = selStmt.Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
