@@ -53,23 +53,32 @@ int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int i, _GoString_ data) {
 }
 
 int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int nBytes) {
-	int nCol = sqlite3_column_count(pStmt);
+	int res = 0;
+	int num = sqlite3_column_count(pStmt);
 	while (TRUE) {
 		if (sqlite3_step(pStmt) != SQLITE_ROW) {
 			break;
 		}
-		for (int i = 0; i < nCol; i++) {
+		int tmp = res;
+		for (int i = 0; i < num; i++) {
+			tmp++;
 			switch (sqlite3_column_type(pStmt, i)) {
 				case SQLITE_INTEGER:
+					tmp += 8;
 					break;
 				case SQLITE_TEXT:
-					break;
-				default:
+					tmp += sqlite3_column_bytes(pStmt, i);
 					break;
 			}
+			if (tmp > nBytes) {
+				printf("overflow, nBytes: %d, tmp: %d\n", nBytes, tmp);
+				return 0;
+			}
 		}
+		printf("new row, res: %d, tmp: %d\n", res, tmp);
+		res = tmp;
 	}
-	return 0;
+	return res;
 }
 */
 import "C"
@@ -169,7 +178,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-const fetchBufferSize = 4096
+const fetchBufferSize = 128
 
 func (s *Stmt) next() int {
 	var zBuff *C.char
