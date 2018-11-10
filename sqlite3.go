@@ -72,7 +72,7 @@ int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int nBytes) {
 			}
 			if (tmp > nBytes) {
 				printf("overflow, nBytes: %d, tmp: %d\n", nBytes, tmp);
-				return 0;
+				return res;
 			}
 		}
 		printf("new row, res: %d, tmp: %d\n", res, tmp);
