@@ -1,10 +1,13 @@
 package sqlite3
 
 /*
+#include <stdio.h>
 #include <string.h>
 #include "sqlite3.h"
 
 #define URI_MAX_SIZE 256
+#define true (1==1)
+#define false (!true)
 
 int _sqlite3_open(sqlite3 **ppDb, _GoString_ URI) {
 	size_t size = _GoStringLen(URI);
@@ -48,11 +51,46 @@ int _sqlite3_prepare(sqlite3 *pDb, sqlite3_stmt **ppStmt, _GoString_ SQL) {
 int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int i, _GoString_ data) {
 	return sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
+
+int _sqlite3_column_write(sqlite3_stmt *pStmt, int iCol, )
+
+//int _sqlite3_column_write(sqlite3_stmt *pStmt, int i, char *pBuff, int nBytes, int pos) {
+//	return 0;
+//}
+
+int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuff, int nBytes) {
+	int rc = SQLITE_OK;
+	int nCol = sqlite3_column_count(pStmt);
+	while (true) {
+		puts("SQLITE_ROW begin");
+		rc = sqlite3_step(pStmt);
+		if (rc != SQLITE_ROW) {
+			break;
+		}
+		puts("SQLITE_ROW middle");
+		for (int i = 0; i < nCol; i++) {
+			switch (sqlite3_column_type(pStmt, i)) {
+				case SQLITE_INTEGER:
+					puts("SQLITE_INTEGER");
+					break;
+    			case SQLITE_TEXT:
+					puts("SQLITE_TEXT");
+					break;
+				default:
+					puts("SQLITE_NULL");
+					break;
+			}
+		}
+		puts("SQLITE_ROW end");
+	}
+	return rc;
+}
 */
 import "C"
 
 import (
 	"errors"
+	"unsafe"
 )
 
 type DB struct {
@@ -145,7 +183,15 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
+const fetchBufferSize = 4096
+
 func (s *Stmt) next() int {
+	var zBuff *C.char
+	var nBytes C.int
+	buf := make([]byte, fetchBufferSize)
+	zBuff = (*C.char)(unsafe.Pointer(&buf[0]))
+	nBytes = C.int(fetchBufferSize)
+	C._sqlite3_step(s.p, zBuff, nBytes)
 	return 0
 }
 

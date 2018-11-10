@@ -30,17 +30,22 @@ func TestCommon(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	selStmt, err := db.Prepare("SELECT `key`, `val` FROM `keyVal`")
+	selStmt, err := db.Prepare("SELECT `key`, `val` FROM `keyVal` LIMIT 0,0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer selStmt.Close()
-	for i := 0; i < 100; i++ {
-		err = selStmt.Exec()
-		if err != nil {
-			t.Fatal(err)
+
+	insStmt.next()
+	/*
+		for i := 0; i < 100; i++ {
+			err = selStmt.Exec()
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
+	*/
+
 }
 
 func TestBackupRestore(t *testing.T) {
