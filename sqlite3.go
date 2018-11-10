@@ -35,8 +35,8 @@ int _sqlite3_copy(sqlite3 *pDb, _GoString_ URI, int isSave) {
 		}
 		sqlite3_backup *pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
 		if (pBackup) {
-			(void)sqlite3_backup_step(pBackup, -1);
-			(void)sqlite3_backup_finish(pBackup);
+			sqlite3_backup_step(pBackup, -1);
+			sqlite3_backup_finish(pBackup);
 		}
 		rc = sqlite3_errcode(pTo);
 	}
@@ -62,7 +62,7 @@ int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int nBytes) {
 			switch (sqlite3_column_type(pStmt, i)) {
 				case SQLITE_INTEGER:
 					break;
-    			case SQLITE_TEXT:
+				case SQLITE_TEXT:
 					break;
 				default:
 					break;
