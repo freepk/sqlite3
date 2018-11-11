@@ -48,37 +48,60 @@ int _sqlite3_prepare(sqlite3 *pDb, sqlite3_stmt **ppStmt, _GoString_ SQL) {
 	return sqlite3_prepare_v2(pDb, _GoStringPtr(SQL), _GoStringLen(SQL), ppStmt, NULL);
 }
 
-int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int i, _GoString_ data) {
-	return sqlite3_bind_text(pStmt, i, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
+int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int iCol, _GoString_ data) {
+	return sqlite3_bind_text(pStmt, iCol, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
 
-int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int nBytes) {
-	int res = 0;
-	int num = sqlite3_column_count(pStmt);
+int _sqlite3_column_write(sqlite3_stmt *pStmt, int iCol, char *pBuf, int bufSize) {
+	int colSize = 1;
+	int colType = sqlite3_column_type(pStmt, iCol);
+	switch (colType) {
+		case SQLITE_INTEGER:
+			colSize += 8;
+			if (bufSize < colSize) {
+				return 0;
+			}
+			// Write data
+			break;
+		case SQLITE_TEXT:
+			colSize += 4;
+			colSize += sqlite3_column_bytes(pStmt, iCol);
+			if (bufSize < colSize) {
+				return 0;
+			}
+			// Write data
+			break;
+		default:
+			if (bufSize < colSize) {
+				return 0;
+			}
+			// Write data
+			break;
+	}
+	return colSize;
+}
+
+int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int bufSize, int *isLast) {
+	int resSize = 0;
+	int numCols = sqlite3_column_count(pStmt);
 	while (TRUE) {
 		if (sqlite3_step(pStmt) != SQLITE_ROW) {
 			break;
 		}
-		int tmp = res;
-		for (int i = 0; i < num; i++) {
-			tmp++;
-			switch (sqlite3_column_type(pStmt, i)) {
-				case SQLITE_INTEGER:
-					tmp += 8;
-					break;
-				case SQLITE_TEXT:
-					tmp += sqlite3_column_bytes(pStmt, i);
-					break;
+		int rowSize = 0;
+		for (int i = 0; i < numCols; i++) {
+			int colSize = _sqlite3_column_write(pStmt, i, NULL, bufSize - rowSize);
+			if (colSize == 0) {
+				*isLast = 0;
+				return resSize;
 			}
-			if (tmp > nBytes) {
-				printf("overflow, nBytes: %d, tmp: %d\n", nBytes, tmp);
-				return 0;
-			}
+			rowSize += colSize;
 		}
-		printf("new row, res: %d, tmp: %d\n", res, tmp);
-		res = tmp;
+		bufSize -= rowSize;
+		resSize += rowSize;
 	}
-	return res;
+	*isLast = 1;
+	return resSize;
 }
 */
 import "C"
@@ -178,15 +201,22 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-const fetchBufferSize = 128
+const fetchBufferSize = 1024
 
 func (s *Stmt) next() int {
-	var zBuff *C.char
-	var nBytes C.int
+	var zBuf *C.char
+	var bufSize C.int
+	var isLast C.int
+
 	buf := make([]byte, fetchBufferSize)
-	zBuff = (*C.char)(unsafe.Pointer(&buf[0]))
-	nBytes = C.int(fetchBufferSize)
-	C._sqlite3_step(s.p, zBuff, nBytes)
+	zBuf = (*C.char)(unsafe.Pointer(&buf[0]))
+	bufSize = C.int(fetchBufferSize)
+
+	r := C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
+	for isLast == 0 {
+		r = C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
+		println("fetchBuffer", r, isLast)
+	}
 	return 0
 }
 

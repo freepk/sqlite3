@@ -25,7 +25,7 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer insStmt.Close()
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 40; i++ {
 		err = insStmt.Exec(i, "test value" + strconv.Itoa(i))
 		if err != nil {
 			t.Fatal(err)
