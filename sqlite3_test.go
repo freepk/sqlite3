@@ -1,8 +1,8 @@
 package sqlite3
 
 import (
-	"testing"
 	"strconv"
+	"testing"
 )
 
 func TestCommon(t *testing.T) {
@@ -25,8 +25,8 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer insStmt.Close()
-	for i := 0; i < 40; i++ {
-		err = insStmt.Exec(i, "test value" + strconv.Itoa(i))
+	for i := 0; i < 1000; i++ {
+		err = insStmt.Exec(i, "test value"+strconv.Itoa(i))
 		if err != nil {
 			t.Fatal(err)
 		}

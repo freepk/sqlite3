@@ -201,7 +201,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-const fetchBufferSize = 1024
+const fetchBufferSize = 512
 
 func (s *Stmt) next() int {
 	var zBuf *C.char
