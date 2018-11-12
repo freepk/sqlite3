@@ -1,6 +1,7 @@
 package sqlite3
 
 import (
+	"strconv"
 	"testing"
 )
 
@@ -24,8 +25,8 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer insStmt.Close()
-	for i := 0; i < 100; i++ {
-		err = insStmt.Exec(i, "test value")
+	for i := 0; i < 1000; i++ {
+		err = insStmt.Exec(i, "test value"+strconv.Itoa(i))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -35,12 +36,16 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer selStmt.Close()
-	for i := 0; i < 100; i++ {
-		err = selStmt.Exec()
-		if err != nil {
-			t.Fatal(err)
+
+	selStmt.next()
+	/*
+		for i := 0; i < 100; i++ {
+			err = selStmt.Exec()
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
+	*/
 }
 
 func TestBackupRestore(t *testing.T) {
