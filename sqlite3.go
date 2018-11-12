@@ -1,11 +1,9 @@
 package sqlite3
 
 /*
-
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-
 #include "sqlite3.h"
 
 #define URI_MAX_SIZE 256
@@ -140,8 +138,6 @@ import "C"
 
 import (
 	"errors"
-	"fmt"
-	"unsafe"
 )
 
 type DB struct {
@@ -234,22 +230,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-const fetchBufferSize = 128
-
 func (s *Stmt) next() int {
-	var zBuf *C.char
-	var szBuf C.int
-	var isLast C.int
-
-	buf := make([]byte, fetchBufferSize)
-	zBuf = (*C.char)(unsafe.Pointer(&buf[0]))
-	szBuf = C.int(fetchBufferSize)
-
-	r := C._sqlite3_step(s.p, zBuf, szBuf, &isLast)
-	for isLast == 0 {
-		r = C._sqlite3_step(s.p, zBuf, szBuf, &isLast)
-		fmt.Println("fetchBuffer", r, isLast, buf[:r])
-	}
 	return 0
 }
 
