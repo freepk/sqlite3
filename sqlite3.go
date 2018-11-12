@@ -3,6 +3,7 @@ package sqlite3
 /*
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include "sqlite3.h"
 
 #define URI_MAX_SIZE 256
@@ -60,7 +61,7 @@ int _sqlite3_write_int(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	}
 	*pBuf = (char)SQLITE_INTEGER;
 	pBuf++;
-	memset(pBuf, 11, 8);
+	memset(pBuf, 33, 8);
 	return r;
 }
 
@@ -74,9 +75,9 @@ int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	}
 	*pBuf = (char)SQLITE_TEXT;
 	pBuf++;
-	memset(pBuf, 22, 4);
+	memset(pBuf, 44, 4);
 	pBuf += 4;
-	memset(pBuf, 33, n);
+	memset(pBuf, 55, n);
 	return r;
 }
 
@@ -95,10 +96,9 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		return 0;
 	}
 	int r = 4;
-	if (szBuf < r) {
+	if (r > szBuf) {
 		return 0;
 	}
-	memset(pBuf, 0, r);
 	for (int i = 0; i < n; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
@@ -116,6 +116,7 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		}
 		r += n;
 	}
+	*(int32_t *)pBuf = r;
 	return r;
 }
 
@@ -238,16 +239,16 @@ const fetchBufferSize = 128
 
 func (s *Stmt) next() int {
 	var zBuf *C.char
-	var bufSize C.int
+	var szBuf C.int
 	var isLast C.int
 
 	buf := make([]byte, fetchBufferSize)
 	zBuf = (*C.char)(unsafe.Pointer(&buf[0]))
-	bufSize = C.int(fetchBufferSize)
+	szBuf = C.int(fetchBufferSize)
 
-	r := C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
+	r := C._sqlite3_step(s.p, zBuf, szBuf, &isLast)
 	for isLast == 0 {
-		r = C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
+		r = C._sqlite3_step(s.p, zBuf, szBuf, &isLast)
 		fmt.Println("fetchBuffer", r, isLast, buf[:r])
 	}
 	return 0
