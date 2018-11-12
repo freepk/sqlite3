@@ -25,7 +25,7 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer insStmt.Close()
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		err = insStmt.Exec(i, "test value"+strconv.Itoa(i))
 		if err != nil {
 			t.Fatal(err)
@@ -37,15 +37,13 @@ func TestCommon(t *testing.T) {
 	}
 	defer selStmt.Close()
 
-	selStmt.next()
-	/*
-		for i := 0; i < 100; i++ {
-			err = selStmt.Exec()
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	*/
+	selStmt.Exec()
+
+	i := 0
+	for selStmt.Next() {
+		i++
+		t.Log(i, selStmt.RowBytes())
+	}
 }
 
 func TestBackupRestore(t *testing.T) {

@@ -92,7 +92,10 @@ int _sqlite3_write_row(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 	if (c == 0) {
 		return 0;
 	}
-	int r = 0;
+	int r = sizeof(int32_t);
+	if (r > szBuf) {
+		return 0;
+	}
 	for (int i = 0; i < c; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
@@ -111,20 +114,20 @@ int _sqlite3_write_row(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		}
 		r += n;
 	}
+	*(int32_t *)pBuf = (int32_t)r;
 	return r;
 }
 
-int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *errCode) {
-	int r = 0;	
-	*errCode = 0;
+int _sqlite3_prefetch(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
+	int r = 0;
 	while (TRUE) {
-		if (sqlite3_step(pStmt) != SQLITE_ROW) {
-			break;
-		}
 		int n = _sqlite3_write_row(pStmt, pBuf + r, szBuf - r);
 		if (n == 0) {
-			*errCode = 1;
 			return r;
+		}
+		int state = sqlite3_step(pStmt);
+		if (state != SQLITE_DONE && state != SQLITE_ROW) {
+			break;
 		}
 		r += n;
 	}
@@ -135,6 +138,16 @@ import "C"
 
 import (
 	"errors"
+	"sync"
+	"unsafe"
+)
+
+const (
+	bufSize = 8192
+)
+
+var (
+	bufPool = sync.Pool{New: newBuf}
 )
 
 type DB struct {
@@ -143,6 +156,12 @@ type DB struct {
 
 type Stmt struct {
 	p *C.sqlite3_stmt
+	b []byte
+	r []byte
+}
+
+func newBuf() interface{} {
+	return make([]byte, bufSize)
 }
 
 func Open(URI string) (*DB, error) {
@@ -167,10 +186,6 @@ func (d *DB) Prepare(SQL string) (*Stmt, error) {
 		return nil, errors.New("cannot prepare statement")
 	}
 	return &Stmt{p: p}, nil
-}
-
-func (s *Stmt) Close() {
-	C.sqlite3_finalize(s.p)
 }
 
 func (d *DB) Backup(URI string) error {
@@ -227,14 +242,53 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-func (s *Stmt) next() int {
-	return 0
-}
-
-func (s *Stmt) Next() bool {
+func (s *Stmt) prefetch() bool {
+	if s.b == nil {
+		s.b = bufPool.Get().([]byte)
+	}
+	p := (*C.char)(unsafe.Pointer(&s.b[0]))
+	z := C.int(bufSize)
+	r := C._sqlite3_prefetch(s.p, p, z)
+	s.r = s.b[:r]
+	if r > 0 {
+		return true
+	}
 	return false
 }
 
-func (s *Stmt) Scan(args ...interface{}) error {
+func (s *Stmt) hasRow() bool {
+	return len(s.r) > 0
+}
+
+func (s *Stmt) rowSize() int {
+	return int(*(*int32)(unsafe.Pointer(&s.r[0])))
+}
+
+func (s *Stmt) RowBytes() []byte {
+	if s.hasRow() {
+		z := s.rowSize()
+		return s.r[:z]
+	}
 	return nil
+}
+
+func (s *Stmt) Next() bool {
+	if !s.hasRow() {
+		return s.prefetch()
+	}
+	z := s.rowSize()
+	s.r = s.r[z:]
+	if !s.hasRow() {
+		return s.prefetch()
+	}
+	return s.hasRow()
+}
+
+func (s *Stmt) Close() {
+	if s.b != nil {
+		bufPool.Put(s.b)
+		s.b = nil
+		s.r = nil
+	}
+	C.sqlite3_finalize(s.p)
 }
