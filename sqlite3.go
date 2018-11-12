@@ -107,6 +107,7 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 				break;
 			default:
 				n = _sqlite3_write_null(pStmt, i, pBuf + r, szBuf - r);
+				break;
 		}
 		if (n == 0) {
 			return 0;
