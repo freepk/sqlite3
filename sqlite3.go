@@ -54,24 +54,24 @@ int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int iCol, _GoString_ data) {
 }
 
 int _sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
-	int r = sizeof(int16_t) + sizeof(int64_t);
+	int r = sizeof(int8_t) + sizeof(int64_t);
 	if (r > szBuf) {
 		return 0;
 	}
-	*(int16_t *)pBuf = (int16_t)SQLITE_INTEGER;
-	pBuf += sizeof(int16_t);
+	*(int8_t *)pBuf = (int8_t)SQLITE_INTEGER;
+	pBuf += sizeof(int8_t);
 	*(int64_t *)pBuf = (int64_t)sqlite3_column_int64(pStmt, iCol);
 	return r;
 }
 
 int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	int n = sqlite3_column_bytes(pStmt, iCol);
-	int r = sizeof(int16_t) + sizeof(int32_t) + n;
+	int r = sizeof(int8_t) + sizeof(int32_t) + n;
 	if (r > szBuf) {
 		return 0;
 	}
-	*(int16_t *)pBuf = (int16_t)SQLITE_TEXT;
-	pBuf += sizeof(int16_t);
+	*(int8_t *)pBuf = (int8_t)SQLITE_TEXT;
+	pBuf += sizeof(int8_t);
 	*(int32_t *)pBuf = (int32_t)n;
 	pBuf += sizeof(int32_t);
 	memcpy(pBuf, sqlite3_column_text(pStmt, iCol), n);
@@ -79,24 +79,21 @@ int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 }
 
 int _sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
-	int r = sizeof(int16_t);
+	int r = sizeof(int8_t);
 	if (r > szBuf) {
 		return 0;
 	}
-	*(int16_t *)pBuf = (int16_t)SQLITE_NULL;
+	*(int8_t *)pBuf = (int8_t)SQLITE_NULL;
 	return r;
 }
 
-int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
-	int nc = sqlite3_column_count(pStmt);
-	if (nc == 0) {
+int _sqlite3_write_row(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
+	int c = sqlite3_column_count(pStmt);
+	if (c == 0) {
 		return 0;
 	}
-	int r = sizeof(int32_t);
-	if (r > szBuf) {
-		return 0;
-	}
-	for (int i = 0; i < nc; i++) {
+	int r = 0;
+	for (int i = 0; i < c; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
 			case SQLITE_INTEGER:
@@ -114,7 +111,6 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		}
 		r += n;
 	}
-	*(int32_t *)pBuf = (int32_t)r;
 	return r;
 }
 
@@ -125,7 +121,7 @@ int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *errCode) {
 		if (sqlite3_step(pStmt) != SQLITE_ROW) {
 			break;
 		}
-		int n = _sqlite3_write(pStmt, pBuf + r, szBuf - r);
+		int n = _sqlite3_write_row(pStmt, pBuf + r, szBuf - r);
 		if (n == 0) {
 			*errCode = 1;
 			return r;
