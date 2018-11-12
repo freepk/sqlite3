@@ -88,15 +88,15 @@ int _sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 }
 
 int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
-	int n = sqlite3_column_count(pStmt);
-	if (n == 0) {
+	int nc = sqlite3_column_count(pStmt);
+	if (nc == 0) {
 		return 0;
 	}
 	int r = sizeof(int32_t);
 	if (r > szBuf) {
 		return 0;
 	}
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < nc; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
 			case SQLITE_INTEGER:
