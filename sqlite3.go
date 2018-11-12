@@ -118,20 +118,20 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 	return r;
 }
 
-int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *isLast) {
-	int r = 0;
+int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *errCode) {
+	int r = 0;	
+	*errCode = 0;
 	while (TRUE) {
 		if (sqlite3_step(pStmt) != SQLITE_ROW) {
 			break;
 		}
 		int n = _sqlite3_write(pStmt, pBuf + r, szBuf - r);
 		if (n == 0) {
-			*isLast = 0;
+			*errCode = 1;
 			return r;
 		}
 		r += n;
 	}
-	*isLast = 1;
 	return r;
 }
 */
