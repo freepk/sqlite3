@@ -1,9 +1,11 @@
 package sqlite3
 
 /*
+
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+
 #include "sqlite3.h"
 
 #define URI_MAX_SIZE 256
@@ -53,40 +55,37 @@ int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int iCol, _GoString_ data) {
 	return sqlite3_bind_text(pStmt, iCol, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
 
-int _sqlite3_write_int(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
-	int r = 1;
-	r += 8;
-	if (szBuf < r) {
+int _sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+	int r = sizeof(int16_t) + sizeof(int64_t);
+	if (r > szBuf) {
 		return 0;
 	}
-	*pBuf = (char)SQLITE_INTEGER;
-	pBuf++;
-	memset(pBuf, 33, 8);
+	*(int16_t *)pBuf = (int16_t)SQLITE_INTEGER;
+	pBuf += sizeof(int16_t);
+	*(int64_t *)pBuf = (int64_t)sqlite3_column_int64(pStmt, iCol);
 	return r;
 }
 
 int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	int n = sqlite3_column_bytes(pStmt, iCol);
-	int r = 1;
-	r += 4;
-	r += n;
-	if (szBuf < r) {
+	int r = sizeof(int16_t) + sizeof(int32_t) + n;
+	if (r > szBuf) {
 		return 0;
 	}
-	*pBuf = (char)SQLITE_TEXT;
-	pBuf++;
-	memset(pBuf, 44, 4);
-	pBuf += 4;
-	memset(pBuf, 55, n);
+	*(int16_t *)pBuf = (int16_t)SQLITE_TEXT;
+	pBuf += sizeof(int16_t);
+	*(int32_t *)pBuf = (int32_t)n;
+	pBuf += sizeof(int32_t);
+	memcpy(pBuf, sqlite3_column_text(pStmt, iCol), n);
 	return r;
 }
 
 int _sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
-	int r = 1;
-	if (szBuf < r) {
+	int r = sizeof(int16_t);
+	if (r > szBuf) {
 		return 0;
 	}
-	*pBuf = (char)SQLITE_NULL;
+	*(int16_t *)pBuf = (int16_t)SQLITE_NULL;
 	return r;
 }
 
@@ -95,7 +94,7 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 	if (n == 0) {
 		return 0;
 	}
-	int r = 4;
+	int r = sizeof(int32_t);
 	if (r > szBuf) {
 		return 0;
 	}
@@ -103,7 +102,7 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
 			case SQLITE_INTEGER:
-				n = _sqlite3_write_int(pStmt, i, pBuf + r, szBuf - r);
+				n = _sqlite3_write_int64(pStmt, i, pBuf + r, szBuf - r);
 				break;
 			case SQLITE_TEXT:
 				n = _sqlite3_write_text(pStmt, i, pBuf + r, szBuf - r);
@@ -116,7 +115,7 @@ int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
 		}
 		r += n;
 	}
-	*(int32_t *)pBuf = r;
+	*(int32_t *)pBuf = (int32_t)r;
 	return r;
 }
 
@@ -203,7 +202,7 @@ func (s *Stmt) bind(args ...interface{}) error {
 		r := C.int(0)
 		switch v := v.(type) {
 		case int:
-			r = C.sqlite3_bind_int(s.p, i, C.int(v))
+			r = C.sqlite3_bind_int64(s.p, i, C.sqlite3_int64(v))
 		case string:
 			r = C._sqlite3_bind_text_static(s.p, i, v)
 		default:
