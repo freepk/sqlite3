@@ -60,7 +60,7 @@ int _sqlite3_write_int(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	}
 	*pBuf = (char)SQLITE_INTEGER;
 	pBuf++;
-	memset(pBuf, 33, 8);
+	memset(pBuf, 11, 8);
 	return r;
 }
 
@@ -74,9 +74,9 @@ int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
 	}
 	*pBuf = (char)SQLITE_TEXT;
 	pBuf++;
-	memset(pBuf, 44, 4);
+	memset(pBuf, 22, 4);
 	pBuf += 4;
-	memset(pBuf, 55, n);
+	memset(pBuf, 33, n);
 	return r;
 }
 
@@ -127,6 +127,7 @@ int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *isLast) {
 		}
 		int n = _sqlite3_write(pStmt, pBuf + r, szBuf - r);
 		if (n == 0) {
+			*isLast = 0;
 			return r;
 		}
 		r += n;
