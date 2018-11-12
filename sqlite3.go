@@ -52,62 +52,94 @@ int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int iCol, _GoString_ data) {
 	return sqlite3_bind_text(pStmt, iCol, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
 }
 
-int _sqlite3_column_write(sqlite3_stmt *pStmt, int iCol, char *pBuf, int bufSize) {
-	int colSize = 1;
-	int colType = sqlite3_column_type(pStmt, iCol);
-	switch (colType) {
-		case SQLITE_INTEGER:
-			colSize += 8;
-			if (bufSize < colSize) {
-				return 0;
-			}
-			// Write data
-			break;
-		case SQLITE_TEXT:
-			colSize += 4;
-			colSize += sqlite3_column_bytes(pStmt, iCol);
-			if (bufSize < colSize) {
-				return 0;
-			}
-			// Write data
-			break;
-		default:
-			if (bufSize < colSize) {
-				return 0;
-			}
-			// Write data
-			break;
+int _sqlite3_write_int(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+	int r = 1;
+	r += 8;
+	if (szBuf < r) {
+		return 0;
 	}
-	return colSize;
+	*pBuf = (char)SQLITE_INTEGER;
+	pBuf++;
+	memset(pBuf, 33, 8);
+	return r;
 }
 
-int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int bufSize, int *isLast) {
-	int resSize = 0;
-	int numCols = sqlite3_column_count(pStmt);
+int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+	int n = sqlite3_column_bytes(pStmt, iCol);
+	int r = 1;
+	r += 4;
+	r += n;
+	if (szBuf < r) {
+		return 0;
+	}
+	*pBuf = (char)SQLITE_TEXT;
+	pBuf++;
+	memset(pBuf, 44, 4);
+	pBuf += 4;
+	memset(pBuf, 55, n);
+	return r;
+}
+
+int _sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+	int r = 1;
+	if (szBuf < r) {
+		return 0;
+	}
+	*pBuf = (char)SQLITE_NULL;
+	return r;
+}
+
+int _sqlite3_write(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
+	int n = sqlite3_column_count(pStmt);
+	if (n == 0) {
+		return 0;
+	}
+	int r = 4;
+	if (szBuf < r) {
+		return 0;
+	}
+	memset(pBuf, 0, r);
+	for (int i = 0; i < n; i++) {
+		int n = 0;
+		switch(sqlite3_column_type(pStmt, i)) {
+			case SQLITE_INTEGER:
+				n = _sqlite3_write_int(pStmt, i, pBuf + r, szBuf - r);
+				break;
+			case SQLITE_TEXT:
+				n = _sqlite3_write_text(pStmt, i, pBuf + r, szBuf - r);
+				break;
+			default:
+				n = _sqlite3_write_null(pStmt, i, pBuf + r, szBuf - r);
+		}
+		if (n == 0) {
+			return 0;
+		}
+		r += n;
+	}
+	return r;
+}
+
+int _sqlite3_step(sqlite3_stmt *pStmt, char *pBuf, int szBuf, int *isLast) {
+	int r = 0;
 	while (TRUE) {
 		if (sqlite3_step(pStmt) != SQLITE_ROW) {
 			break;
 		}
-		int rowSize = 0;
-		for (int i = 0; i < numCols; i++) {
-			int colSize = _sqlite3_column_write(pStmt, i, NULL, bufSize - rowSize);
-			if (colSize == 0) {
-				*isLast = 0;
-				return resSize;
-			}
-			rowSize += colSize;
+		int n = _sqlite3_write(pStmt, pBuf + r, szBuf - r);
+		if (n == 0) {
+			return r;
 		}
-		bufSize -= rowSize;
-		resSize += rowSize;
+		r += n;
 	}
 	*isLast = 1;
-	return resSize;
+	return r;
 }
 */
 import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -201,7 +233,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 	return errors.New("cannot execute statement")
 }
 
-const fetchBufferSize = 512
+const fetchBufferSize = 128
 
 func (s *Stmt) next() int {
 	var zBuf *C.char
@@ -215,7 +247,7 @@ func (s *Stmt) next() int {
 	r := C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
 	for isLast == 0 {
 		r = C._sqlite3_step(s.p, zBuf, bufSize, &isLast)
-		println("fetchBuffer", r, isLast)
+		fmt.Println("fetchBuffer", r, isLast, buf[:r])
 	}
 	return 0
 }
