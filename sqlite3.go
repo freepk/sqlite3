@@ -250,10 +250,7 @@ func (s *Stmt) prefetch() bool {
 	z := C.int(bufSize)
 	r := C._sqlite3_prefetch(s.p, p, z)
 	s.r = s.b[:r]
-	if r > 0 {
-		return true
-	}
-	return false
+	return r > 0
 }
 
 func (s *Stmt) hasRow() bool {
@@ -281,7 +278,7 @@ func (s *Stmt) Next() bool {
 	if !s.hasRow() {
 		return s.prefetch()
 	}
-	return s.hasRow()
+	return true
 }
 
 func (s *Stmt) Close() {
