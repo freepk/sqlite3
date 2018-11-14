@@ -42,42 +42,56 @@ int sqlite3_copy(sqlite3 *pDb, const char *zURI, int nBytes, int isSave) {
 	return rc;
 }
 
-int sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int a = sizeof(int8_t);
-	if (a > nBytes) {
-		return 0;
-	}
-	*pBuf = SQLITE_NULL;
-	return a;
-}
+#define SQLITE_ENC1(a,b,c,d) \
+	if ((b) < 1) return 0; \
+	*(uint8_t *)(a) = (c); \
+	(a) += 1; (b) -= 1; (d) += 1;
 
-int sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int a = sizeof(int8_t);
-	int b = sizeof(int64_t);
-	if (a + b > nBytes) {
-		return 0;
-	}
-	*pBuf = SQLITE_INTEGER;
-	*(int64_t *)&pBuf[a] = sqlite3_column_int64(pStmt, iCol);
-	return a + b;
-}
+#define SQLITE_ENC2(a,b,c,d) \
+	if ((b) < 2) return 0; \
+	*(uint16_t *)(a) = (c); \
+	(a) += 2; (b) -= 2; (d) += 2;
 
-int sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int a = sizeof(int8_t);
-	int b = sizeof(int32_t);
-	int c = sqlite3_column_bytes(pStmt, iCol);
-	if (a + b + c > nBytes) {
-		return 0;
-	}
-	*pBuf = SQLITE_TEXT;
-	*(int32_t *)&pBuf[a] = c;
-	memcpy(&pBuf[b], sqlite3_column_text(pStmt, iCol), c);
-	return a + b + c;
-}
+#define SQLITE_ENC4(a,b,c,d) \
+	if ((b) < 4) return 0; \
+	*(uint32_t *)(a) = (c); \
+	(a) += 4; (b) -= 4; (d) += 4;
 
-int sqlite3_write_columns(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int c = sqlite3_column_count(pStmt);
-	return 0;
+#define SQLITE_ENC8(a,b,c,d) \
+	if ((b) < 8) return 0; \
+	*(uint64_t *)(a) = (c); \
+	(a) += 8; (b) -= 8; (d) += 8;
+
+#define SQLITE_ENCN(a,b,c,d,e) \
+	if ((b) < (d)) return 0; \
+	memcpy(a, c, d); \
+	(a) += d; (b) -= d; (e) += d;
+
+int sqlite3_write_columns(sqlite3_stmt *pStmt, int iCol, void *pBuf, int nBytes) {
+	int n = 0;
+	int m = sqlite3_column_count(pStmt);
+	SQLITE_ENC4(pBuf, nBytes, 0, n);
+	for (int i = 0; i < m; i++) {
+		switch(sqlite3_column_type(pStmt, iCol)) {
+			case SQLITE_INTEGER: {
+				SQLITE_ENC1(pBuf, nBytes, SQLITE_INTEGER, n);
+				SQLITE_ENC8(pBuf, nBytes, sqlite3_column_int64(pStmt, iCol), n);
+				break;
+			}
+			case SQLITE_TEXT: {
+				int b = sqlite3_column_bytes(pStmt, iCol);
+				SQLITE_ENC1(pBuf, nBytes, SQLITE_TEXT, n);
+				SQLITE_ENC4(pBuf, nBytes, b, n);
+				SQLITE_ENCN(pBuf, nBytes, sqlite3_column_text(pStmt, iCol), b, n);
+				break;
+			}
+			default: {
+				SQLITE_ENC1(pBuf, nBytes, SQLITE_NULL, n);
+				break;
+			}
+		}
+	}
+	return n;
 }
 
 */
