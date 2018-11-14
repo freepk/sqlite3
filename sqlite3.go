@@ -7,6 +7,12 @@ package sqlite3
 #include <string.h>
 #include "sqlite3.h"
 
+#define ENCODEN(a,b,c) memcpy((a),(b),(c));(a)+=(c);
+#define ENCODE1(a,b)  *(uint8_t *)(a)=(b);(a)+=1;
+#define ENCODE2(a,b) *(uint16_t *)(a)=(b);(a)+=2;
+#define ENCODE4(a,b) *(uint32_t *)(a)=(b);(a)+=4;
+#define ENCODE8(a,b) *(uint64_t *)(a)=(b);(a)+=8;
+
 int sqlite3_open_x(const char *zURI, int nBytes, sqlite3 **ppDb) {
 	char cURI[512];
 	if (nBytes >= sizeof(cURI)) {
@@ -42,57 +48,56 @@ int sqlite3_copy(sqlite3 *pDb, const char *zURI, int nBytes, int isSave) {
 	return rc;
 }
 
-#define SQLITE_ENC1(a,b,c,d) \
-	if ((b) < 1) return 0; \
-	*(uint8_t *)(a) = (c); \
-	(a) += 1; (b) -= 1; (d) += 1;
-
-#define SQLITE_ENC2(a,b,c,d) \
-	if ((b) < 2) return 0; \
-	*(uint16_t *)(a) = (c); \
-	(a) += 2; (b) -= 2; (d) += 2;
-
-#define SQLITE_ENC4(a,b,c,d) \
-	if ((b) < 4) return 0; \
-	*(uint32_t *)(a) = (c); \
-	(a) += 4; (b) -= 4; (d) += 4;
-
-#define SQLITE_ENC8(a,b,c,d) \
-	if ((b) < 8) return 0; \
-	*(uint64_t *)(a) = (c); \
-	(a) += 8; (b) -= 8; (d) += 8;
-
-#define SQLITE_ENCN(a,b,c,d,e) \
-	if ((b) < (d)) return 0; \
-	memcpy(a, c, d); \
-	(a) += d; (b) -= d; (e) += d;
-
-int sqlite3_write_columns(sqlite3_stmt *pStmt, int iCol, void *pBuf, int nBytes) {
+int sqlite3_row_bytes(sqlite3_stmt *pStmt) {
 	int n = 0;
-	int m = sqlite3_column_count(pStmt);
-	SQLITE_ENC4(pBuf, nBytes, 0, n);
-	for (int i = 0; i < m; i++) {
-		switch(sqlite3_column_type(pStmt, iCol)) {
+	int c = sqlite3_column_count(pStmt);
+	for (int i = 0; i < c; i++) {
+		n++;
+		switch(sqlite3_column_type(pStmt, i)) {
+			case SQLITE_INTEGER:
+				n += 8;
+				break;
+			case SQLITE_TEXT:
+				n += sqlite3_column_bytes(pStmt, i);
+				break;
+		}
+	}
+	return n;
+}
+
+int sqlite3_row_write(sqlite3_stmt *pStmt, void *pBuf, int nBytes) {
+	int n = sqlite3_row_bytes(pStmt);
+	if (n > nBytes) return 0;
+	ENCODE4(pBuf, n);
+	int c = sqlite3_column_count(pStmt);
+	for (int i = 0; i < c; i++) {
+		switch(sqlite3_column_type(pStmt, i)) {
 			case SQLITE_INTEGER: {
-				SQLITE_ENC1(pBuf, nBytes, SQLITE_INTEGER, n);
-				SQLITE_ENC8(pBuf, nBytes, sqlite3_column_int64(pStmt, iCol), n);
+				ENCODE1(pBuf, SQLITE_INTEGER);
+				ENCODE8(pBuf, sqlite3_column_int64(pStmt, i));
 				break;
 			}
 			case SQLITE_TEXT: {
-				int b = sqlite3_column_bytes(pStmt, iCol);
-				SQLITE_ENC1(pBuf, nBytes, SQLITE_TEXT, n);
-				SQLITE_ENC4(pBuf, nBytes, b, n);
-				SQLITE_ENCN(pBuf, nBytes, sqlite3_column_text(pStmt, iCol), b, n);
+				int b = sqlite3_column_bytes(pStmt, i);
+				ENCODE1(pBuf, SQLITE_TEXT);
+				ENCODE8(pBuf, b);
+				ENCODEN(pBuf, sqlite3_column_text(pStmt, i), b);
 				break;
 			}
 			default: {
-				SQLITE_ENC1(pBuf, nBytes, SQLITE_NULL, n);
+				ENCODE1(pBuf, SQLITE_NULL);
 				break;
 			}
 		}
 	}
 	return n;
 }
+
+int sqlite3_prefetch(sqlite3_stmt *pStmt, void *pBuf, int nBytes) {
+	int n = 0;
+	return n;
+}
+
 
 */
 import "C"
