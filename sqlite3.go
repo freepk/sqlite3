@@ -42,44 +42,31 @@ int sqlite3_copy(sqlite3 *pDb, const char *zURI, int nBytes, int isSave) {
 	return rc;
 }
 
-int writeMem(void *b, int n, const void *v, int s) {
-	if (n < s) { return 0; }
-	memcpy(b, v, s);
-	return s;
-}
-
-int writeInt8(void *b, int n, int8_t v) {
-	return writeMem(b, n, &v, sizeof(v));
-}
-
-int writeInt32(void *b, int n, int32_t v) {
-	return writeMem(b, n, &v, sizeof(v));
-}
-
-int writeInt64(void *b, int n, int64_t v) {
-	return writeMem(b, n, &v, sizeof(v));
+int sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
+	int a = sizeof(int8_t);
+	if (a > nBytes) { return 0; }
+	*(int8_t *)&pBuf[0] = SQLITE_NULL;
+	return a;
 }
 
 int sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int a = writeInt8(pBuf, nBytes, SQLITE_INTEGER);
-	if (a == 0) { return 0; }
-	int b = writeInt64(pBuf + a, nBytes - a, 0);
-	if (b == 0) { return 0; }
+	int a = sizeof(int8_t);
+	int b = sizeof(int64_t);
+	if (a + b > nBytes) { return 0; }
+	*(int8_t *)&pBuf[0] = SQLITE_INTEGER;
+	*(int64_t *)&pBuf[a] = sqlite3_column_int64(pStmt, iCol);
 	return a + b;
 }
 
 int sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	int a = writeInt8(pBuf, nBytes, SQLITE_TEXT);
-	if (a == 0) { return 0; }
-	int b = writeInt32(pBuf + a, nBytes - a, 0);
-	if (b == 0) { return 0; }
-	int c = writeMem(pBuf + (a + b), nBytes - (a + b), "text", 4);
-	if (c == 0) { return 0; }
+	int a = sizeof(int8_t);
+	int b = sizeof(int32_t);
+	int c = sqlite3_column_bytes(pStmt, iCol);
+	if (a + b + c > nBytes) { return 0; }
+	*(int8_t *)&pBuf[0] = SQLITE_TEXT;
+	*(int32_t *)&pBuf[a] = c;
+	memcpy(&pBuf[b], sqlite3_column_text(pStmt, iCol), c);
 	return a + b + c;
-}
-
-int sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
-	return writeInt8(pBuf, nBytes, SQLITE_NULL);
 }
 
 */
