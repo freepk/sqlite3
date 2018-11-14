@@ -9,7 +9,7 @@ package sqlite3
 
 int sqlite3_open_x(const char *zURI, int nBytes, sqlite3 **ppDb) {
 	char cURI[512];
-	if (nBytes > sizeof(cURI)) {
+	if (nBytes >= sizeof(cURI)) {
 		return SQLITE_ERROR;
 	}
 	memcpy(cURI, zURI, nBytes);
@@ -44,7 +44,9 @@ int sqlite3_copy(sqlite3 *pDb, const char *zURI, int nBytes, int isSave) {
 
 int sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
 	int a = sizeof(int8_t);
-	if (a > nBytes) { return 0; }
+	if (a > nBytes) {
+		return 0;
+	}
 	*pBuf = SQLITE_NULL;
 	return a;
 }
@@ -52,7 +54,9 @@ int sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes)
 int sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
 	int a = sizeof(int8_t);
 	int b = sizeof(int64_t);
-	if (a + b > nBytes) { return 0; }
+	if (a + b > nBytes) {
+		return 0;
+	}
 	*pBuf = SQLITE_INTEGER;
 	*(int64_t *)&pBuf[a] = sqlite3_column_int64(pStmt, iCol);
 	return a + b;
@@ -62,11 +66,18 @@ int sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes)
 	int a = sizeof(int8_t);
 	int b = sizeof(int32_t);
 	int c = sqlite3_column_bytes(pStmt, iCol);
-	if (a + b + c > nBytes) { return 0; }
+	if (a + b + c > nBytes) {
+		return 0;
+	}
 	*pBuf = SQLITE_TEXT;
 	*(int32_t *)&pBuf[a] = c;
 	memcpy(&pBuf[b], sqlite3_column_text(pStmt, iCol), c);
 	return a + b + c;
+}
+
+int sqlite3_write_columns(sqlite3_stmt *pStmt, int iCol, uint8_t *pBuf, int nBytes) {
+	int c = sqlite3_column_count(pStmt);
+	return 0;
 }
 
 */
