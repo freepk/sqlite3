@@ -236,10 +236,7 @@ func (s *Stmt) Exec(args ...interface{}) error {
 		return err
 	}
 	r = C.sqlite3_step(s.p)
-	if r == C.SQLITE_DONE {
-		return nil
-	}
-	if r == C.SQLITE_ROW {
+	if r == C.SQLITE_DONE || r == C.SQLITE_ROW {
 		return nil
 	}
 	return errors.New("cannot execute statement")
