@@ -1,132 +1,125 @@
 package sqlite3
 
 /*
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h>
 #include "sqlite3.h"
 
-#define URI_MAX_SIZE 256
-#define TRUE (1==1)
-#define FALSE (!TRUE)
+#define ENCODE_I8(a,b) *(int8_t*)(a)=(b);(a)+=sizeof(int8_t);
+#define ENCODE_I16(a,b) *(int16_t*)(a)=(b);(a)+=sizeof(int16_t);
+#define ENCODE_I32(a,b) *(int32_t*)(a)=(b);(a)+=sizeof(int32_t);
+#define ENCODE_I64(a,b) *(int64_t*)(a)=(b);(a)+=sizeof(int64_t);
+#define ENCODE_MEM(a,b,c) memcpy((a),(b),(c));(a)+=(c);
 
-int _sqlite3_open(sqlite3 **ppDb, _GoString_ URI) {
-	size_t size = _GoStringLen(URI);
-	if (size >= URI_MAX_SIZE) {
+int sqlite3_open_x(const char *pURI, int nURI, sqlite3 **ppDb) {
+	char cURI[512];
+	if (nURI >= sizeof(cURI)) {
 		return SQLITE_ERROR;
 	}
-	char cURI[URI_MAX_SIZE];
-	memcpy(cURI, _GoStringPtr(URI), size);
-	cURI[size] = 0;
+	memcpy(cURI, pURI, nURI);
+	cURI[nURI] = 0;
 	return sqlite3_open(cURI, ppDb);
 }
 
-int _sqlite3_copy(sqlite3 *pDb, _GoString_ URI, int isSave) {
+int sqlite3_bind_text_x(sqlite3_stmt *pStmt, int iCol, const char *pSQL, int nSQL) {
+	return sqlite3_bind_text(pStmt, iCol, pSQL, nSQL, SQLITE_STATIC);
+}
+
+int sqlite3_copy(sqlite3 *pDb, const char *pURI, int nURI, int isSave) {
+	sqlite3 *pTo;
+	sqlite3 *pFrom;
 	sqlite3 *pTemp;
-	int rc = _sqlite3_open(&pTemp, URI);
-	if (rc == SQLITE_OK) {
-		sqlite3 *pTo;
-		sqlite3 *pFrom;
-		if (isSave == 1) {
-			pTo = pTemp;
-			pFrom = pDb;
-		} else {
-			pTo = pDb;
-			pFrom = pTemp;
-		}
-		sqlite3_backup *pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
-		if (pBackup) {
-			sqlite3_backup_step(pBackup, -1);
-			sqlite3_backup_finish(pBackup);
-		}
-		rc = sqlite3_errcode(pTo);
+	int rc = sqlite3_open_x(pURI, nURI, &pTemp);
+	if (rc != SQLITE_OK) {
+		sqlite3_close_v2(pTemp);
+		return rc;
 	}
-	sqlite3_close(pTemp);
+	pTo = (isSave ? pTemp : pDb);
+	pFrom = (isSave ? pDb : pTemp);
+	sqlite3_backup *pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
+	if (pBackup) {
+		sqlite3_backup_step(pBackup, -1);
+		sqlite3_backup_finish(pBackup);
+	}
+	rc = sqlite3_errcode(pTo);
+	sqlite3_close_v2(pTemp);
 	return rc;
 }
 
-int _sqlite3_prepare(sqlite3 *pDb, sqlite3_stmt **ppStmt, _GoString_ SQL) {
-	return sqlite3_prepare_v2(pDb, _GoStringPtr(SQL), _GoStringLen(SQL), ppStmt, NULL);
-}
-
-int _sqlite3_bind_text_static(sqlite3_stmt *pStmt, int iCol, _GoString_ data) {
-	return sqlite3_bind_text(pStmt, iCol, _GoStringPtr(data), _GoStringLen(data), SQLITE_STATIC);
-}
-
-int _sqlite3_write_int64(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+int sqlite3_encode_int64(char *pBuf, int nBuf, int64_t iData) {
 	int r = sizeof(int8_t) + sizeof(int64_t);
-	if (r > szBuf) {
+	if (r > nBuf) {
 		return 0;
 	}
-	*(int8_t *)pBuf = (int8_t)SQLITE_INTEGER;
-	pBuf += sizeof(int8_t);
-	*(int64_t *)pBuf = (int64_t)sqlite3_column_int64(pStmt, iCol);
+	ENCODE_I8(pBuf, SQLITE_INTEGER);
+	ENCODE_I64(pBuf, iData);
 	return r;
 }
 
-int _sqlite3_write_text(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
-	int n = sqlite3_column_bytes(pStmt, iCol);
-	int r = sizeof(int8_t) + sizeof(int32_t) + n;
-	if (r > szBuf) {
+int sqlite3_encode_text(char *pBuf, int nBuf, const unsigned char *pData, int nData) {
+	int r = sizeof(int8_t) + sizeof(int32_t) + nData;
+	if (r > nBuf) {
 		return 0;
 	}
-	*(int8_t *)pBuf = (int8_t)SQLITE_TEXT;
-	pBuf += sizeof(int8_t);
-	*(int32_t *)pBuf = (int32_t)n;
-	pBuf += sizeof(int32_t);
-	memcpy(pBuf, sqlite3_column_text(pStmt, iCol), n);
+	ENCODE_I8(pBuf, SQLITE_TEXT);
+	ENCODE_I32(pBuf, nData);
+	ENCODE_MEM(pBuf, pData, nData);
 	return r;
 }
 
-int _sqlite3_write_null(sqlite3_stmt *pStmt, int iCol, char *pBuf, int szBuf) {
+int sqlite3_encode_null(char *pBuf, int nBuf) {
 	int r = sizeof(int8_t);
-	if (r > szBuf) {
+	if (r > nBuf) {
 		return 0;
 	}
-	*(int8_t *)pBuf = (int8_t)SQLITE_NULL;
+	ENCODE_I8(pBuf, SQLITE_NULL);
 	return r;
 }
 
-int _sqlite3_write_row(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
+int sqlite3_encode_row(sqlite3_stmt *pStmt, char *pBuf, int nBuf) {
 	int c = sqlite3_column_count(pStmt);
-	if (c == 0) {
-		return 0;
-	}
 	int r = sizeof(int32_t);
-	if (r > szBuf) {
+	if (r > nBuf) {
 		return 0;
 	}
 	for (int i = 0; i < c; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
-			case SQLITE_INTEGER:
-				n = _sqlite3_write_int64(pStmt, i, pBuf + r, szBuf - r);
+			case SQLITE_INTEGER: {
+				n = sqlite3_encode_int64(pBuf + r, nBuf - r
+					, sqlite3_column_int64(pStmt, i));
 				break;
-			case SQLITE_TEXT:
-				n = _sqlite3_write_text(pStmt, i, pBuf + r, szBuf - r);
+			}
+			case SQLITE_TEXT: {
+				n = sqlite3_encode_text(pBuf + r, nBuf - r
+					, sqlite3_column_text(pStmt, i)
+					, sqlite3_column_bytes(pStmt, i));
 				break;
-			default:
-				n = _sqlite3_write_null(pStmt, i, pBuf + r, szBuf - r);
+			}
+			default: {
+				n = sqlite3_encode_null(pBuf + r, nBuf - r);
 				break;
+			}
 		}
 		if (n == 0) {
 			return 0;
 		}
 		r += n;
 	}
-	*(int32_t *)pBuf = (int32_t)r;
+	ENCODE_I32(pBuf, r);
 	return r;
 }
 
-int _sqlite3_prefetch(sqlite3_stmt *pStmt, char *pBuf, int szBuf) {
+int sqlite3_prefetch(sqlite3_stmt *pStmt, char *pBuf, int nBuf) {
 	int r = 0;
-	while (TRUE) {
-		int n = _sqlite3_write_row(pStmt, pBuf + r, szBuf - r);
+	while (1) {
+		int n = sqlite3_encode_row(pStmt, pBuf + r, nBuf - r);
 		if (n == 0) {
 			return r;
 		}
-		int state = sqlite3_step(pStmt);
-		if (state != SQLITE_DONE && state != SQLITE_ROW) {
+		int s = sqlite3_step(pStmt);
+		if (s != SQLITE_DONE && s != SQLITE_ROW) {
 			break;
 		}
 		r += n;
@@ -138,17 +131,14 @@ import "C"
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 	"unsafe"
 )
 
-const (
-	bufSize = 8192
-)
-
-var (
-	bufPool = sync.Pool{New: newBuf}
-)
+var byteBufPool = sync.Pool{New: func() interface{} {
+	return make([]byte, 8192)
+}}
 
 type DB struct {
 	p *C.sqlite3
@@ -160,13 +150,19 @@ type Stmt struct {
 	r []byte
 }
 
-func newBuf() interface{} {
-	return make([]byte, bufSize)
+func cStr(s string) (*C.char, C.int) {
+	h := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	return (*C.char)(unsafe.Pointer(h.Data)), C.int(h.Len)
+}
+
+func cBytes(b []byte) (*C.char, C.int) {
+	return (*C.char)(unsafe.Pointer(&b[0])), C.int(len(b))
 }
 
 func Open(URI string) (*DB, error) {
 	var p *C.sqlite3
-	r := C._sqlite3_open(&p, URI)
+	z, n := cStr(URI)
+	r := C.sqlite3_open_x(z, n, &p)
 	if r != C.SQLITE_OK {
 		C.sqlite3_close_v2(p)
 		return nil, errors.New("cannot open database")
@@ -178,18 +174,9 @@ func (d *DB) Close() {
 	C.sqlite3_close_v2(d.p)
 }
 
-func (d *DB) Prepare(SQL string) (*Stmt, error) {
-	var p *C.sqlite3_stmt
-	r := C._sqlite3_prepare(d.p, &p, SQL)
-	if r != C.SQLITE_OK {
-		C.sqlite3_finalize(p)
-		return nil, errors.New("cannot prepare statement")
-	}
-	return &Stmt{p: p}, nil
-}
-
 func (d *DB) Backup(URI string) error {
-	r := C._sqlite3_copy(d.p, URI, 1)
+	z, n := cStr(URI)
+	r := C.sqlite3_copy(d.p, z, n, 1)
 	if r != C.SQLITE_OK {
 		return errors.New("cannot backup database")
 	}
@@ -197,11 +184,31 @@ func (d *DB) Backup(URI string) error {
 }
 
 func (d *DB) Restore(URI string) error {
-	r := C._sqlite3_copy(d.p, URI, 0)
+	z, n := cStr(URI)
+	r := C.sqlite3_copy(d.p, z, n, 0)
 	if r != C.SQLITE_OK {
 		return errors.New("cannot restore database")
 	}
 	return nil
+}
+
+func (d *DB) Prepare(SQL string) (*Stmt, error) {
+	var p *C.sqlite3_stmt
+	z, n := cStr(SQL)
+	r := C.sqlite3_prepare_v2(d.p, z, n, &p, nil)
+	if r != C.SQLITE_OK {
+		return nil, errors.New("cannot prepare statement")
+	}
+	return &Stmt{p: p}, nil
+}
+
+func (s *Stmt) Close() {
+	if s.b != nil {
+		byteBufPool.Put(s.b)
+		s.b = nil
+		s.r = nil
+	}
+	C.sqlite3_finalize(s.p)
 }
 
 func (s *Stmt) bind(args ...interface{}) error {
@@ -212,7 +219,8 @@ func (s *Stmt) bind(args ...interface{}) error {
 		case int:
 			r = C.sqlite3_bind_int64(s.p, i, C.sqlite3_int64(v))
 		case string:
-			r = C._sqlite3_bind_text_static(s.p, i, v)
+			z, n := cStr(v)
+			r = C.sqlite3_bind_text_x(s.p, i, z, n)
 		default:
 			return errors.New("cannot bind parameters")
 		}
@@ -244,11 +252,10 @@ func (s *Stmt) Exec(args ...interface{}) error {
 
 func (s *Stmt) prefetch() bool {
 	if s.b == nil {
-		s.b = bufPool.Get().([]byte)
+		s.b = byteBufPool.Get().([]byte)
 	}
-	p := (*C.char)(unsafe.Pointer(&s.b[0]))
-	z := C.int(bufSize)
-	r := C._sqlite3_prefetch(s.p, p, z)
+	z, n := cBytes(s.b)
+	r := C.sqlite3_prefetch(s.p, z, n)
 	s.r = s.b[:r]
 	return r > 0
 }
@@ -259,14 +266,6 @@ func (s *Stmt) hasRow() bool {
 
 func (s *Stmt) rowSize() int {
 	return int(*(*int32)(unsafe.Pointer(&s.r[0])))
-}
-
-func (s *Stmt) RowBytes() []byte {
-	if s.hasRow() {
-		z := s.rowSize()
-		return s.r[:z]
-	}
-	return nil
 }
 
 func (s *Stmt) Next() bool {
@@ -281,11 +280,10 @@ func (s *Stmt) Next() bool {
 	return true
 }
 
-func (s *Stmt) Close() {
-	if s.b != nil {
-		bufPool.Put(s.b)
-		s.b = nil
-		s.r = nil
+func (s *Stmt) RowBytes() []byte {
+	if s.hasRow() {
+		z := s.rowSize()
+		return s.r[:z]
 	}
-	C.sqlite3_finalize(s.p)
+	return nil
 }
