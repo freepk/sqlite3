@@ -6,12 +6,6 @@ package sqlite3
 #include <string.h>
 #include "sqlite3.h"
 
-#define ENCODE_I8(a,b) *(int8_t*)(a)=(b);(a)+=sizeof(int8_t);
-#define ENCODE_I16(a,b) *(int16_t*)(a)=(b);(a)+=sizeof(int16_t);
-#define ENCODE_I32(a,b) *(int32_t*)(a)=(b);(a)+=sizeof(int32_t);
-#define ENCODE_I64(a,b) *(int64_t*)(a)=(b);(a)+=sizeof(int64_t);
-#define ENCODE_MEM(a,b,c) memcpy((a),(b),(c));(a)+=(c);
-
 int sqlite3_open_x(const char *pURI, int nURI, sqlite3 **ppDb) {
 	char cURI[512];
 	if (nURI >= sizeof(cURI)) {
@@ -47,39 +41,39 @@ int sqlite3_copy(sqlite3 *pDb, const char *pURI, int nURI, int isSave) {
 	return rc;
 }
 
-int sqlite3_encode_int64(char *pBuf, int nBuf, int64_t iData) {
-	int r = sizeof(int8_t) + sizeof(int64_t);
+int sqlite3_encode_int64(char *pBuf, int nBuf, int64_t iVal) {
+	int r = 1 + 8;
 	if (r > nBuf) {
 		return 0;
 	}
-	ENCODE_I8(pBuf, SQLITE_INTEGER);
-	ENCODE_I64(pBuf, iData);
+	*(int8_t*)pBuf = SQLITE_INTEGER;
+	*(int64_t*)&pBuf[1] = iVal;
 	return r;
 }
 
-int sqlite3_encode_text(char *pBuf, int nBuf, const unsigned char *pData, int nData) {
-	int r = sizeof(int8_t) + sizeof(int32_t) + nData;
+int sqlite3_encode_text(char *pBuf, int nBuf, const unsigned char *pVal, int nVal) {
+	int r = 1 + 4 + nVal;
 	if (r > nBuf) {
 		return 0;
 	}
-	ENCODE_I8(pBuf, SQLITE_TEXT);
-	ENCODE_I32(pBuf, nData);
-	ENCODE_MEM(pBuf, pData, nData);
+	*(int8_t*)pBuf = SQLITE_TEXT;
+	*(int32_t*)&pBuf[1] = nVal;
+	memcpy(&pBuf[5], pVal, nVal);
 	return r;
 }
 
 int sqlite3_encode_null(char *pBuf, int nBuf) {
-	int r = sizeof(int8_t);
+	int r = 1;
 	if (r > nBuf) {
 		return 0;
 	}
-	ENCODE_I8(pBuf, SQLITE_NULL);
+	*(int8_t*)pBuf = SQLITE_NULL;
 	return r;
 }
 
 int sqlite3_encode_row(sqlite3_stmt *pStmt, char *pBuf, int nBuf) {
 	int c = sqlite3_column_count(pStmt);
-	int r = sizeof(int32_t);
+	int r = 4;
 	if (r > nBuf) {
 		return 0;
 	}
@@ -107,7 +101,7 @@ int sqlite3_encode_row(sqlite3_stmt *pStmt, char *pBuf, int nBuf) {
 		}
 		r += n;
 	}
-	ENCODE_I32(pBuf, r);
+	*(int32_t*)pBuf = r;
 	return r;
 }
 
