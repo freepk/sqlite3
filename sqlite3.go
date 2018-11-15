@@ -272,8 +272,8 @@ func (s *Stmt) Next() bool {
 	if !s.hasRow() {
 		return s.prefetch()
 	}
-	z := s.rowSize()
-	s.r = s.r[z:]
+	n := s.rowSize()
+	s.r = s.r[n:]
 	if !s.hasRow() {
 		return s.prefetch()
 	}
@@ -282,8 +282,8 @@ func (s *Stmt) Next() bool {
 
 func (s *Stmt) RowBytes() []byte {
 	if s.hasRow() {
-		z := s.rowSize()
-		return s.r[:z]
+		n := s.rowSize()
+		return s.r[:n]
 	}
 	return nil
 }
