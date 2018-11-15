@@ -150,19 +150,19 @@ type Stmt struct {
 	r []byte
 }
 
-func cStr(s string) (*C.char, C.int) {
+func cString(s string) (*C.char, C.int) {
 	h := (*reflect.StringHeader)(unsafe.Pointer(&s))
 	return (*C.char)(unsafe.Pointer(h.Data)), C.int(h.Len)
 }
 
-func cBytes(b []byte) (*C.char, C.int) {
+func cSlice(b []byte) (*C.char, C.int) {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	return (*C.char)(unsafe.Pointer(h.Data)), C.int(h.Len)
 }
 
 func Open(URI string) (*DB, error) {
 	var p *C.sqlite3
-	z, n := cStr(URI)
+	z, n := cString(URI)
 	r := C.sqlite3_open_x(z, n, &p)
 	if r != C.SQLITE_OK {
 		C.sqlite3_close_v2(p)
@@ -176,7 +176,7 @@ func (d *DB) Close() {
 }
 
 func (d *DB) Backup(URI string) error {
-	z, n := cStr(URI)
+	z, n := cString(URI)
 	r := C.sqlite3_copy(d.p, z, n, 1)
 	if r != C.SQLITE_OK {
 		return errors.New("cannot backup database")
@@ -185,7 +185,7 @@ func (d *DB) Backup(URI string) error {
 }
 
 func (d *DB) Restore(URI string) error {
-	z, n := cStr(URI)
+	z, n := cString(URI)
 	r := C.sqlite3_copy(d.p, z, n, 0)
 	if r != C.SQLITE_OK {
 		return errors.New("cannot restore database")
@@ -195,7 +195,7 @@ func (d *DB) Restore(URI string) error {
 
 func (d *DB) Prepare(SQL string) (*Stmt, error) {
 	var p *C.sqlite3_stmt
-	z, n := cStr(SQL)
+	z, n := cString(SQL)
 	r := C.sqlite3_prepare_v2(d.p, z, n, &p, nil)
 	if r != C.SQLITE_OK {
 		return nil, errors.New("cannot prepare statement")
@@ -220,7 +220,7 @@ func (s *Stmt) bind(args ...interface{}) error {
 		case int:
 			r = C.sqlite3_bind_int64(s.p, i, C.sqlite3_int64(v))
 		case string:
-			z, n := cStr(v)
+			z, n := cString(v)
 			r = C.sqlite3_bind_text_x(s.p, i, z, n)
 		default:
 			return errors.New("cannot bind parameters")
@@ -255,7 +255,7 @@ func (s *Stmt) prefetch() bool {
 	if s.b == nil {
 		s.b = byteBufPool.Get().([]byte)
 	}
-	z, n := cBytes(s.b)
+	z, n := cSlice(s.b)
 	r := C.sqlite3_prefetch(s.p, z, n)
 	s.r = s.b[:r]
 	return r > 0
