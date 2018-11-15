@@ -156,7 +156,8 @@ func cStr(s string) (*C.char, C.int) {
 }
 
 func cBytes(b []byte) (*C.char, C.int) {
-	return (*C.char)(unsafe.Pointer(&b[0])), C.int(len(b))
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	return (*C.char)(unsafe.Pointer(h.Data)), C.int(h.Len)
 }
 
 func Open(URI string) (*DB, error) {
