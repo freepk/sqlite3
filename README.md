@@ -5,4 +5,5 @@ Just another one cgo sqlite3 wrapper. Run download.sh to get latests sqlite sour
 Optimize for key-value in memory store.
 
 ## TODO
+Scan(...) method.
 Better error handling.
