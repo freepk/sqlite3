@@ -80,21 +80,17 @@ int sqlite3_encode_row(sqlite3_stmt *pStmt, char *pBuf, int nBuf) {
 	for (int i = 0; i < c; i++) {
 		int n = 0;
 		switch(sqlite3_column_type(pStmt, i)) {
-			case SQLITE_INTEGER: {
-				n = sqlite3_encode_int64(pBuf + r, nBuf - r
-					, sqlite3_column_int64(pStmt, i));
+			case SQLITE_INTEGER:
+				n = sqlite3_encode_int64(pBuf + r, nBuf - r,
+					sqlite3_column_int64(pStmt, i));
 				break;
-			}
-			case SQLITE_TEXT: {
-				n = sqlite3_encode_text(pBuf + r, nBuf - r
-					, sqlite3_column_text(pStmt, i)
-					, sqlite3_column_bytes(pStmt, i));
+			case SQLITE_TEXT:
+				n = sqlite3_encode_text(pBuf + r, nBuf - r,
+					sqlite3_column_text(pStmt, i),
+					sqlite3_column_bytes(pStmt, i));
 				break;
-			}
-			default: {
+			default:
 				n = sqlite3_encode_null(pBuf + r, nBuf - r);
-				break;
-			}
 		}
 		if (n == 0) {
 			return 0;
